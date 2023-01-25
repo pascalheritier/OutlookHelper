@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NLog;
+using NLog.Config;
 using NLog.Extensions.Logging;
 
 namespace OutlookHelper;
@@ -11,6 +12,7 @@ public class Program
     #region App Config
 
     private static string AppSettingsFileName = "appsettings.json";
+    private static string LogConfigFileName = "NLog.config";
 
     #endregion
 
@@ -50,14 +52,25 @@ public class Program
             // configure Logging with NLog
             loggingBuilder.ClearProviders();
             loggingBuilder.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
-            loggingBuilder.AddNLog(config);
+            loggingBuilder.AddNLog(GetLogConfiguration());
         });
         services.AddTransient<UserInputManager>();
-    } 
+    }
 
     #endregion
 
     #region Application configuration
+
+    private static LoggingConfiguration GetLogConfiguration()
+    {
+        var stream = typeof(Program).Assembly.GetManifestResourceStream("OutlookHelper." + LogConfigFileName);
+        string xml;
+        using (var reader = new StreamReader(stream))
+        {
+            xml = reader.ReadToEnd();
+        }
+        return XmlLoggingConfiguration.CreateFromXmlString(xml);
+    }
 
     private static AppConfiguration GetAppConfiguration(IConfiguration configuration)
     {
