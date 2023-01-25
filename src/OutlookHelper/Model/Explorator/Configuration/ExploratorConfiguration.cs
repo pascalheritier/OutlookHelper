@@ -3,8 +3,8 @@
     internal class ExploratorConfiguration
     {
         public double WorkingPercentage { get; set; }
-        public List<string> ExcludedSubjects { get; set; }
-        public List<string> ExcludedCategories { get; set; }
-        public List<YearRange> WeekRangePerYear { get; set; }
+        public List<string> ExcludedSubjects { get; set; } = null!;
+        public List<string> ExcludedCategories { get; set; } = null!;
+        public List<YearRange> WeekRangePerYear { get; set; } = null!;
     }
 }

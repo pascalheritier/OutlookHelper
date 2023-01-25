@@ -121,7 +121,7 @@ namespace OutlookHelper
 
                 // find if an issue is linked to appointment
                 Issue? foundIssue;
-                if (!TryGetCorrespondingIssue(appointmentItem, out foundIssue))
+                if (!TryGetCorrespondingIssue(appointmentItem, out foundIssue) || foundIssue is null)
                     _logger.LogWarning($"Could not find any corresponding issue linked to the current appointment {appointmentItem.Subject}," +
                         $" no issue will be linked to the new time entry.");
                 else
@@ -133,7 +133,7 @@ namespace OutlookHelper
             }
             catch (System.Exception e)
             {
-                _logger.LogError($"FAILURE: Export of appointment '{appointmentItem.Start} - {appointmentItem.Subject}' failed, with error message: {e.Message} - {e.InnerException.Message}");
+                _logger.LogError($"FAILURE: Export of appointment '{appointmentItem.Start} - {appointmentItem.Subject}' failed, with error message: {e.Message} - {e.InnerException?.Message}");
             }
         }
 
@@ -248,7 +248,7 @@ namespace OutlookHelper
                 if (foundIssue is not null)
                     return true;
             }
-            catch (System.Exception e)
+            catch
             {
                 // silent failure, found issue is null
             }

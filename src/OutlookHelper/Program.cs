@@ -39,8 +39,6 @@ public class Program
     #region Services
     private static void ConfigureServices(IServiceCollection services)
     {
-        https://github.com/NLog/NLog/wiki/Getting-started-with-.NET-Core-2---Console-application
-
         IConfiguration config = new ConfigurationBuilder()
         .SetBasePath(System.IO.Directory.GetCurrentDirectory()) //From NuGet Package Microsoft.Extensions.Configuration.Json
         .AddJsonFile(AppSettingsFileName, optional: true, reloadOnChange: true)
@@ -63,7 +61,7 @@ public class Program
 
     private static LoggingConfiguration GetLogConfiguration()
     {
-        var stream = typeof(Program).Assembly.GetManifestResourceStream("OutlookHelper." + LogConfigFileName);
+        Stream stream = typeof(Program).Assembly.GetManifestResourceStream("OutlookHelper." + LogConfigFileName)!;
         string xml;
         using (var reader = new StreamReader(stream))
         {
