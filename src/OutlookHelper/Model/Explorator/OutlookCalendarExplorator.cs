@@ -56,7 +56,11 @@ namespace OutlookHelper
                 // get list of all calendar events
                 List<AppointmentItem> calendarItems = new();
                 for (int i = 1; i <= calendar.Items.Count; i++)
+                {
+                    if (calendar.Items[i] is not AppointmentItem)
+                        continue;
                     calendarItems.Add((AppointmentItem)calendar.Items[i]);
+                }
 
                 // group calendar items by year, while excluding unwanted categories (or items with no category) or unwanted subjects
                 var yearlySortedCalendarItems = calendarItems
