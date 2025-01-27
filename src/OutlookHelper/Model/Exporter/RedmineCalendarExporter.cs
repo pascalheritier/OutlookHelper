@@ -110,19 +110,32 @@ namespace OutlookHelper
                         foundActivity = _timeEntryActivities.First();
                 }
 
+                // add custom fields
+                IssueCustomField customField = IdentifiableName.Create<IssueCustomField>(id: 49);
+                customField.Name = "Reste à faire";
+                customField.Values = new List<CustomFieldValue>
+                {
+                    new CustomFieldValue { Info = "0.0" }
+                };
+
                 // create a new time entry
                 TimeEntry timeEntry = new()
                 {
                     SpentOn = appointmentItem.Start,
                     Activity = IdentifiableName.Create<IdentifiableName>(foundActivity.Id),
                     Comments = appointmentItem.Subject,
-                    Hours = (decimal)TimeSpan.FromMinutes(appointmentItem.Duration).TotalHours
+                    Hours = (decimal)TimeSpan.FromMinutes(appointmentItem.Duration).TotalHours,
+                    CustomFields = new List<IssueCustomField> { customField }
                 };
+
 
                 // find if an issue is linked to appointment
                 Issue? foundIssue;
                 if (!TryGetCorrespondingIssue(appointmentItem, out foundIssue))
                     _logger.LogWarning($"Could not find any corresponding issue linked to the current appointment {appointmentItem.Subject}," +
+                        $" no issue will be linked to the new time entry.");
+                else if(foundIssue.ClosedOn != null)
+                    _logger.LogWarning($"Corresponding issue linked to the current appointment {appointmentItem.Subject} is closed, linkink is not possible," +
                         $" no issue will be linked to the new time entry.");
                 else
                     timeEntry.Issue = IdentifiableName.Create<IdentifiableName>(foundIssue.Id);
