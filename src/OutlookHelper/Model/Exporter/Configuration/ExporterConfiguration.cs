@@ -6,6 +6,7 @@
         public string ApiKey { get; set; }
         public string TargetUserId { get; set; }
         public List<Activity> TimeEntryActivities { get; set; }
+        public int DefaultTimeEntryIssueId { get; set; }
         public List<CategoryToActivityMapping> CustomCategoryToActivityMappings { get; set; }
     }
 }
