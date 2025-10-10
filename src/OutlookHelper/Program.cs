@@ -32,6 +32,7 @@ public class Program
         {
             LogManager.GetCurrentClassLogger().Log(NLog.LogLevel.Fatal, $"Critical app failure: {ex.Message}{Environment.NewLine}{ex.StackTrace}");
         }
+        Console.ReadKey();
     }
 
     #endregion

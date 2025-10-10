@@ -15,6 +15,7 @@ namespace OutlookHelper
         private string _apiKey;
         private string _targetUserId;
         private List<Activity> _timeEntryActivities;
+        private int _defaultTimeEntryIssueId;
         List<CategoryToActivityMapping> _categoryToActivityMappings;
         private RedmineManager _manager;
         private ILogger _logger;
@@ -28,6 +29,7 @@ namespace OutlookHelper
             string apiKey,
             string targetUserId,
             List<Activity> timeEntryActivities,
+            int defaultTimeEntryIssueId,
             List<CategoryToActivityMapping> categoryToActivityMappings,
             ILogger logger)
         {
@@ -35,6 +37,7 @@ namespace OutlookHelper
             _apiKey = apiKey;
             _targetUserId = targetUserId;
             _timeEntryActivities = timeEntryActivities;
+            _defaultTimeEntryIssueId = defaultTimeEntryIssueId;
             _categoryToActivityMappings = categoryToActivityMappings;
             _manager = new RedmineManager(_serverUrl, _apiKey);
             _logger = logger;
@@ -110,20 +113,45 @@ namespace OutlookHelper
                         foundActivity = _timeEntryActivities.First();
                 }
 
+                // add custom fields
+                IssueCustomField customField = IdentifiableName.Create<IssueCustomField>(id: 49);
+                customField.Name = "Reste à faire";
+                customField.Values = new List<CustomFieldValue>
+                {
+                    new CustomFieldValue { Info = "0.0" }
+                };
+                IssueCustomField customField2 = IdentifiableName.Create<IssueCustomField>(id: 61);
+                customField2.Name = "% réalisé";
+                customField2.Values = new List<CustomFieldValue>
+                {
+                    new CustomFieldValue { Info = "100" }
+                };
+
                 // create a new time entry
                 TimeEntry timeEntry = new()
                 {
                     SpentOn = appointmentItem.Start,
                     Activity = IdentifiableName.Create<IdentifiableName>(foundActivity.Id),
                     Comments = appointmentItem.Subject,
-                    Hours = (decimal)TimeSpan.FromMinutes(appointmentItem.Duration).TotalHours
+                    Hours = (decimal)TimeSpan.FromMinutes(appointmentItem.Duration).TotalHours,
+                    CustomFields = new List<IssueCustomField> { customField, customField2 }
                 };
+
 
                 // find if an issue is linked to appointment
                 Issue? foundIssue;
                 if (!TryGetCorrespondingIssue(appointmentItem, out foundIssue))
+                {
+                    timeEntry.Issue = IdentifiableName.Create<IdentifiableName>(_defaultTimeEntryIssueId);
                     _logger.LogWarning($"Could not find any corresponding issue linked to the current appointment {appointmentItem.Subject}," +
-                        $" no issue will be linked to the new time entry.");
+                        $" default issue '{_defaultTimeEntryIssueId}' will be linked to the new time entry.");
+                }
+                else if(foundIssue.ClosedOn != null)
+                {
+                    timeEntry.Issue = IdentifiableName.Create<IdentifiableName>(_defaultTimeEntryIssueId);
+                    _logger.LogWarning($"Corresponding issue linked to the current appointment {appointmentItem.Subject} is closed, linkink is not possible," +
+                        $" default issue '{_defaultTimeEntryIssueId}' will be linked to the new time entry.");
+                }
                 else
                     timeEntry.Issue = IdentifiableName.Create<IdentifiableName>(foundIssue.Id);
 
@@ -157,7 +185,7 @@ namespace OutlookHelper
                     return true;
 
                 string errorMessage = $"Export failed, there are currently time entries for week {weekToExport}";
-                foreach (var timeEntry in _manager.GetObjects<TimeEntry>(parameters))
+                foreach (TimeEntry timeEntry in weeklyTimeEntries)
                     errorMessage += Environment.NewLine + string.Format("Time entry details: {0} / {1} / {2} / {3}h.", timeEntry.SpentOn, timeEntry.Activity.Name, timeEntry.Comments, timeEntry.Hours);
                 _logger.LogError(errorMessage);
                 return false;

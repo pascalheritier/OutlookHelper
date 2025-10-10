@@ -32,6 +32,7 @@ namespace OutlookHelper
                 appConfiguration.ExporterConfiguration.ApiKey,
                 appConfiguration.ExporterConfiguration.TargetUserId,
                 appConfiguration.ExporterConfiguration.TimeEntryActivities,
+                appConfiguration.ExporterConfiguration.DefaultTimeEntryIssueId,
                 appConfiguration.ExporterConfiguration.CustomCategoryToActivityMappings,
                 loggerFactory.CreateLogger<RedmineCalendarExporter>());
         }
