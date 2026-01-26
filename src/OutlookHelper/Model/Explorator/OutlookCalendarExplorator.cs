@@ -10,7 +10,7 @@ namespace OutlookHelper
     {
         #region Statics
 
-        private static Func<DateTime, int> WeekProjector = (d) => CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(d, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Sunday);
+        private static Func<DateTime, int> WeekProjector = (d) => ISOWeek.GetWeekOfYear(d);
 
         #endregion
 
