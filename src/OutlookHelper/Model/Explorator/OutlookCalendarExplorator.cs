@@ -53,49 +53,76 @@ namespace OutlookHelper
             if (calendar != null)
             {
                 SortedCalendar sortedCalendar = new();
-                // get list of all calendar events
-                List<AppointmentItem> calendarItems = new();
-                for (int i = 1; i <= calendar.Items.Count; i++)
-                    calendarItems.Add((AppointmentItem)calendar.Items[i]);
+                Items calendarItems = calendar.Items;
+                calendarItems.Sort("[Start]");
+                HashSet<string> excludedCategories = new(_excludedCategories ?? Enumerable.Empty<string>(), StringComparer.Ordinal);
+                HashSet<string> excludedSubjects = new(_excludedSubjects ?? Enumerable.Empty<string>(), StringComparer.Ordinal);
+                Dictionary<int, YearRange> yearRanges = _weekRangePerYear?.ToDictionary(_W => _W.Year) ?? new Dictionary<int, YearRange>();
+                foreach (var yearRange in yearRanges.Values)
+                {
+                    if (yearRange.WeekRange.Count != 2)
+                        throw new NotSupportedException("Year range must define a starting and an ending week!");
+                }
+                Dictionary<int, Dictionary<int, List<AppointmentItem>>> itemsByYearWeek = new();
+                object? rawItem = calendarItems.GetFirst();
+                while (rawItem != null)
+                {
+                    if (rawItem is AppointmentItem appointmentItem)
+                    {
+                        string? categories = appointmentItem.Categories;
+                        if (!string.IsNullOrEmpty(categories)
+                            && !excludedSubjects.Contains(appointmentItem.Subject)
+                            && !excludedCategories.Contains(categories))
+                        {
+                            DateTime start = appointmentItem.Start;
+                            if (yearRanges.TryGetValue(start.Year, out YearRange? yearRange))
+                            {
+                                int week = WeekProjector(start);
+                                if (week >= yearRange.WeekRange[0] && week <= yearRange.WeekRange[1])
+                                {
+                                    if (!itemsByYearWeek.TryGetValue(start.Year, out Dictionary<int, List<AppointmentItem>>? weeklyItems))
+                                    {
+                                        weeklyItems = new Dictionary<int, List<AppointmentItem>>();
+                                        itemsByYearWeek.Add(start.Year, weeklyItems);
+                                    }
+                                    if (!weeklyItems.TryGetValue(week, out List<AppointmentItem>? weekItems))
+                                    {
+                                        weekItems = new List<AppointmentItem>();
+                                        weeklyItems.Add(week, weekItems);
+                                    }
+                                    weekItems.Add(appointmentItem);
+                                }
+                            }
+                        }
+                    }
+                    rawItem = calendarItems.GetNext();
+                }
 
                 // group calendar items by year, while excluding unwanted categories (or items with no category) or unwanted subjects
-                var yearlySortedCalendarItems = calendarItems
-                    .Where(_CI => !string.IsNullOrEmpty(_CI.Categories))
-                    .Where(_CI => !_excludedSubjects.Any(_S => _S == _CI.Subject))
-                    .Where(_CI => !_excludedCategories.Any(_S => _S == _CI.Categories))
-                    .GroupBy(_CI => _CI.Start.Year);
-                foreach (var yearlyGroupCalendarItems in yearlySortedCalendarItems)
+                foreach (var yearlyGroupCalendarItems in itemsByYearWeek.OrderBy(_G => _G.Key))
                 {
                     int year = yearlyGroupCalendarItems.Key;
                     YearlyCalendar yearlyCalendar = new YearlyCalendar { Year = year };
                     sortedCalendar.YearlyCalendars.Add(yearlyCalendar);
 
                     // group calendar items by week
-                    var weeklyGroupCalendarItems = yearlyGroupCalendarItems.GroupBy(_C => WeekProjector(_C.Start));
-
-                    // skip items that are not in desired range
-                    YearRange? yearRange = _weekRangePerYear.FirstOrDefault(_W => _W.Year == year);
-                    if (yearRange is null)
-                        continue; // skip year with no range
-                    if (yearRange.WeekRange.Count() != 2)
-                        throw new NotSupportedException("Year range must define a starting and an ending week!");
-                    weeklyGroupCalendarItems = weeklyGroupCalendarItems.Where(_WeeklyGroup => _WeeklyGroup.Key >= yearRange.WeekRange[0] && _WeeklyGroup.Key <= yearRange.WeekRange[1]);
+                    Dictionary<int, List<AppointmentItem>> weeklyGroupCalendarItems = yearlyGroupCalendarItems.Value;
 
                     // compute yearly data
-                    yearlyCalendar.YearlyTimeSpent = TimeSpan.FromMinutes(weeklyGroupCalendarItems.SelectMany(_WeeklyGroup => _WeeklyGroup.Select(_CI => _CI.Duration)).Sum());
+                    yearlyCalendar.YearlyTimeSpent = TimeSpan.FromMinutes(weeklyGroupCalendarItems.SelectMany(_WeeklyGroup => _WeeklyGroup.Value.Select(_CI => _CI.Duration)).Sum());
 
                     // loop calendar for each week of current year
-                    foreach (var weeklyCalendarItems in weeklyGroupCalendarItems)
+                    foreach (var weeklyCalendarItems in weeklyGroupCalendarItems.OrderBy(_W => _W.Key))
                     {
                         int week = weeklyCalendarItems.Key;
                         WeeklyCalendar weeklyCalendar = new WeeklyCalendar { Week = week };
                         yearlyCalendar.WeeklyCalendars.Add(weeklyCalendar);
 
                         // compute weekly data
-                        weeklyCalendar.WeeklyTimeSpent = TimeSpan.FromMinutes(weeklyCalendarItems.Select(_Item => _Item.Duration).Sum());
+                        weeklyCalendar.WeeklyTimeSpent = TimeSpan.FromMinutes(weeklyCalendarItems.Value.Select(_Item => _Item.Duration).Sum());
 
                         // loop calendar for each calendar item of current week
-                        foreach (AppointmentItem sortedCalendarItem in weeklyCalendarItems)
+                        foreach (AppointmentItem sortedCalendarItem in weeklyCalendarItems.Value)
                             weeklyCalendar.Appointments.Add(sortedCalendarItem);
                     }
                 }
